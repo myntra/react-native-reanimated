@@ -81,6 +81,8 @@ public class NodesManager implements EventDispatcherListener {
   public Set<String> uiProps = Collections.emptySet();
   public Set<String> nativeProps = Collections.emptySet();
 
+  public static CrashHandler crashHandler;
+
   private final class NativeUpdateOperation {
     public int mViewTag;
     public WritableMap mNativeProps;
@@ -389,15 +391,23 @@ public class NodesManager implements EventDispatcherListener {
   }
 
   private void handleEvent(Event event) {
-    if (!mEventMapping.isEmpty()) {
-      // If the event has a different name in native convert it to it's JS name.
-      String eventName = mCustomEventNamesResolver.resolveCustomEventName(event.getEventName());
-      int viewTag = event.getViewTag();
-      String key = viewTag + eventName;
-      EventNode node = mEventMapping.get(key);
-      if (node != null) {
-        event.dispatch(node);
+    try {
+      if (event == null) {
+        if (crashHandler != null) crashHandler.onError("Null event received in NodesManager");
+        return;
       }
+      if (!mEventMapping.isEmpty()) {
+        // If the event has a different name in native convert it to it's JS name.
+        String eventName = mCustomEventNamesResolver.resolveCustomEventName(event.getEventName());
+        int viewTag = event.getViewTag();
+        String key = viewTag + eventName;
+        EventNode node = mEventMapping.get(key);
+        if (node != null) {
+          event.dispatch(node);
+        }
+      }
+    } catch (Exception error) {
+      if (crashHandler != null) crashHandler.onError(error);
     }
   }
 
@@ -410,5 +420,11 @@ public class NodesManager implements EventDispatcherListener {
     if (node != null) {
         ((ValueNode) node).setValue(newValue);
     }
+  }
+
+  public interface CrashHandler {
+    void onError(String errorMessage);
+
+    void onError(Exception error);
   }
 }
